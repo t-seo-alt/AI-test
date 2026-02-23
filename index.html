@@ -1,0 +1,348 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>AI 返信アシスタント</title>
+    <!-- Tailwind CSS for styling -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- Lucide Icons for UI icons -->
+    <script src="https://unpkg.com/lucide@latest"></script>
+    <style>
+        /* カスタムスクロールバー（落ち着いたデザインに合わせる） */
+        ::-webkit-scrollbar {
+            width: 8px;
+        }
+        ::-webkit-scrollbar-track {
+            background: #f4f4f5; 
+            border-radius: 4px;
+        }
+        ::-webkit-scrollbar-thumb {
+            background: #d4d4d8; 
+            border-radius: 4px;
+        }
+        ::-webkit-scrollbar-thumb:hover {
+            background: #a1a1aa; 
+        }
+        
+        /* ローディングアニメーション */
+        .spinner {
+            border: 3px solid rgba(255,255,255,0.3);
+            border-radius: 50%;
+            border-top: 3px solid #fff;
+            width: 18px;
+            height: 18px;
+            animation: spin 1s linear infinite;
+            display: none;
+        }
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+        .is-loading .spinner {
+            display: inline-block;
+        }
+        .is-loading .btn-text {
+            display: none;
+        }
+    </style>
+</head>
+<body class="bg-[#F4F4F5] text-[#3F3F46] min-h-screen font-sans antialiased selection:bg-[#D4D4D8] selection:text-[#18181B]">
+
+    <!-- ヘッダー -->
+    <header class="bg-white border-b border-[#E4E4E7] shadow-sm sticky top-0 z-10">
+        <div class="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 h-16 flex items-center justify-between">
+            <div class="flex items-center gap-2">
+                <i data-lucide="bot-message-square" class="w-6 h-6 text-[#52525B]"></i>
+                <h1 class="text-xl font-semibold tracking-tight text-[#27272A]">AI 返信アシスタント</h1>
+            </div>
+            <div class="text-sm text-[#71717A]">
+                Customer Support Tool
+            </div>
+        </div>
+    </header>
+
+    <!-- メインコンテンツ -->
+    <main class="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+        <div class="grid grid-cols-1 lg:grid-cols-12 gap-8">
+            
+            <!-- 左側：入力パネル -->
+            <div class="lg:col-span-5 flex flex-col gap-6">
+                <div class="bg-white p-6 rounded-2xl shadow-sm border border-[#E4E4E7]">
+                    <h2 class="text-lg font-medium text-[#27272A] mb-4 flex items-center gap-2">
+                        <i data-lucide="pen-line" class="w-5 h-5 text-[#71717A]"></i>
+                        返信の条件を入力
+                    </h2>
+
+                    <!-- 問い合わせ内容 -->
+                    <div class="mb-5">
+                        <label for="customer-message" class="block text-sm font-medium text-[#52525B] mb-1.5">
+                            お客様からの問い合わせ内容 <span class="text-red-500">*</span>
+                        </label>
+                        <textarea id="customer-message" rows="5" 
+                            class="w-full px-3 py-2 bg-[#FAFAFA] border border-[#D4D4D8] rounded-xl focus:outline-none focus:ring-2 focus:ring-[#A1A1AA] focus:border-transparent transition-shadow text-sm resize-y"
+                            placeholder="例：昨日注文した商品がまだ届きません。いつ頃になりますか？"></textarea>
+                    </div>
+
+                    <!-- トーン選択 -->
+                    <div class="mb-5">
+                        <label for="reply-tone" class="block text-sm font-medium text-[#52525B] mb-1.5">
+                            返信のトーン（雰囲気）
+                        </label>
+                        <div class="relative">
+                            <select id="reply-tone" class="w-full px-3 py-2 bg-[#FAFAFA] border border-[#D4D4D8] rounded-xl appearance-none focus:outline-none focus:ring-2 focus:ring-[#A1A1AA] focus:border-transparent transition-shadow text-sm">
+                                <option value="標準的で丁寧">標準的で丁寧（一般的なビジネス）</option>
+                                <option value="とても丁寧・フォーマル">とても丁寧・フォーマル（目上の方やクレーム対応）</option>
+                                <option value="親しみやすい・柔らかい">親しみやすい・柔らかい（BtoCやカジュアルな窓口）</option>
+                                <option value="誠実なお詫び">誠実なお詫び（謝罪が必要な場合）</option>
+                            </select>
+                            <div class="pointer-events-none absolute inset-y-0 right-0 flex items-center px-3 text-[#71717A]">
+                                <i data-lucide="chevron-down" class="w-4 h-4"></i>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- 含めるポイント -->
+                    <div class="mb-6">
+                        <label for="key-points" class="block text-sm font-medium text-[#52525B] mb-1.5">
+                            必ず含めたい内容・回答ポイント
+                        </label>
+                        <textarea id="key-points" rows="3" 
+                            class="w-full px-3 py-2 bg-[#FAFAFA] border border-[#D4D4D8] rounded-xl focus:outline-none focus:ring-2 focus:ring-[#A1A1AA] focus:border-transparent transition-shadow text-sm resize-y"
+                            placeholder="例：&#10;・配送遅延のお詫び&#10;・本日夕方に発送予定であること&#10;・追跡番号は後ほど送ること"></textarea>
+                    </div>
+
+                    <!-- 生成ボタン -->
+                    <button id="generate-btn" class="w-full flex items-center justify-center gap-2 bg-[#52525B] hover:bg-[#3F3F46] text-white px-4 py-3 rounded-xl font-medium transition-colors focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-[#52525B]">
+                        <span class="spinner"></span>
+                        <i data-lucide="sparkles" class="w-4 h-4 btn-text"></i>
+                        <span class="btn-text">AIで返信案を作成する</span>
+                    </button>
+                </div>
+                
+                <!-- ヒント領域 -->
+                <div class="bg-[#F8FAFC] border border-[#E2E8F0] rounded-xl p-4 text-sm text-[#64748B]">
+                    <p class="flex items-start gap-2">
+                        <i data-lucide="info" class="w-4 h-4 mt-0.5 shrink-0"></i>
+                        <span>個人情報（お名前、電話番号など）は入力に含めない、もしくは伏せ字（〇〇様 など）にしてご利用ください。</span>
+                    </p>
+                </div>
+            </div>
+
+            <!-- 右側：出力パネル -->
+            <div class="lg:col-span-7 flex flex-col h-full">
+                <div class="bg-white p-6 rounded-2xl shadow-sm border border-[#E4E4E7] flex-grow flex flex-col">
+                    <div class="flex items-center justify-between mb-4">
+                        <h2 class="text-lg font-medium text-[#27272A] flex items-center gap-2">
+                            <i data-lucide="file-text" class="w-5 h-5 text-[#71717A]"></i>
+                            生成された返信案
+                        </h2>
+                        <button id="copy-btn" class="flex items-center gap-1.5 text-sm px-3 py-1.5 bg-[#F4F4F5] hover:bg-[#E4E4E7] text-[#52525B] rounded-lg transition-colors border border-[#D4D4D8]" disabled>
+                            <i data-lucide="copy" class="w-4 h-4"></i>
+                            コピー
+                        </button>
+                    </div>
+
+                    <!-- 出力テキストエリア -->
+                    <div class="relative flex-grow flex flex-col">
+                        <textarea id="output-text" 
+                            class="w-full h-full min-h-[400px] p-4 bg-[#FAFAFA] border border-[#D4D4D8] rounded-xl focus:outline-none focus:ring-2 focus:ring-[#A1A1AA] focus:border-transparent transition-shadow text-[#27272A] leading-relaxed resize-none"
+                            placeholder="AIが作成した返信案がここに表示されます。表示された文章は自由に編集できます。"></textarea>
+                        
+                        <!-- プレースホルダー状態（空のときの中央テキスト） -->
+                        <div id="empty-state" class="absolute inset-0 flex flex-col items-center justify-center pointer-events-none text-[#A1A1AA]">
+                            <i data-lucide="mail-open" class="w-12 h-12 mb-3 opacity-50"></i>
+                            <p class="text-sm">左側のフォームを入力して生成ボタンを押してください</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+        </div>
+    </main>
+
+    <!-- トースト通知（ポップアップメッセージ） -->
+    <div id="toast" class="fixed bottom-4 right-4 transform translate-y-20 opacity-0 transition-all duration-300 bg-[#27272A] text-white px-4 py-3 rounded-lg shadow-lg flex items-center gap-2 z-50 pointer-events-none">
+        <i data-lucide="check-circle-2" class="w-5 h-5 text-emerald-400" id="toast-icon"></i>
+        <span id="toast-message" class="text-sm font-medium">メッセージ</span>
+    </div>
+
+    <script>
+        // アイコンの初期化
+        lucide.createIcons();
+
+        // Gemini API設定 (環境から提供されるキーを使用)
+        const apiKey = ""; 
+        const API_URL = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-preview-09-2025:generateContent?key=${apiKey}`;
+
+        // DOM要素の取得
+        const customerMessageInput = document.getElementById('customer-message');
+        const replyToneInput = document.getElementById('reply-tone');
+        const keyPointsInput = document.getElementById('key-points');
+        const generateBtn = document.getElementById('generate-btn');
+        const outputText = document.getElementById('output-text');
+        const copyBtn = document.getElementById('copy-btn');
+        const emptyState = document.getElementById('empty-state');
+        const toast = document.getElementById('toast');
+        const toastMessage = document.getElementById('toast-message');
+        const toastIcon = document.getElementById('toast-icon');
+
+        // トースト通知を表示する関数
+        let toastTimeout;
+        function showToast(message, type = 'success') {
+            toastMessage.textContent = message;
+            
+            if (type === 'error') {
+                toastIcon.setAttribute('data-lucide', 'alert-circle');
+                toastIcon.classList.replace('text-emerald-400', 'text-red-400');
+            } else {
+                toastIcon.setAttribute('data-lucide', 'check-circle-2');
+                toastIcon.classList.replace('text-red-400', 'text-emerald-400');
+            }
+            lucide.createIcons(); // アイコン再描画
+
+            toast.classList.remove('translate-y-20', 'opacity-0');
+            
+            clearTimeout(toastTimeout);
+            toastTimeout = setTimeout(() => {
+                toast.classList.add('translate-y-20', 'opacity-0');
+            }, 3000);
+        }
+
+        // 入力監視（プレースホルダーの表示/非表示、コピーボタンの制御）
+        outputText.addEventListener('input', () => {
+            if (outputText.value.trim() !== '') {
+                emptyState.style.display = 'none';
+                copyBtn.disabled = false;
+                copyBtn.classList.remove('opacity-50', 'cursor-not-allowed');
+            } else {
+                emptyState.style.display = 'flex';
+                copyBtn.disabled = true;
+                copyBtn.classList.add('opacity-50', 'cursor-not-allowed');
+            }
+        });
+
+        // コピー機能（iFrame制限を考慮し execCommand を使用）
+        copyBtn.addEventListener('click', () => {
+            if (!outputText.value) return;
+            
+            outputText.select();
+            outputText.setSelectionRange(0, 99999); // モバイル対応
+
+            try {
+                document.execCommand('copy');
+                showToast('クリップボードにコピーしました', 'success');
+            } catch (err) {
+                showToast('コピーに失敗しました', 'error');
+                console.error('Copy failed:', err);
+            }
+            
+            // 選択解除
+            window.getSelection().removeAllRanges();
+        });
+
+        // 指数バックオフ付きのAPI呼び出し関数
+        async function generateWithRetry(prompt, systemInstruction) {
+            const delays = [1000, 2000, 4000, 8000, 16000];
+            const maxRetries = 5;
+
+            const payload = {
+                contents: [{ parts: [{ text: prompt }] }],
+                systemInstruction: { parts: [{ text: systemInstruction }] }
+            };
+
+            for (let i = 0; i < maxRetries; i++) {
+                try {
+                    const response = await fetch(API_URL, {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify(payload)
+                    });
+
+                    if (!response.ok) {
+                        throw new Error(`API Error: ${response.status}`);
+                    }
+
+                    const data = await response.json();
+                    
+                    // 結果の抽出
+                    if (data.candidates && data.candidates[0] && data.candidates[0].content && data.candidates[0].content.parts[0]) {
+                        return data.candidates[0].content.parts[0].text;
+                    } else {
+                        throw new Error('Unexpected API response format');
+                    }
+
+                } catch (error) {
+                    console.error(`Attempt ${i + 1} failed:`, error);
+                    if (i === maxRetries - 1) {
+                        throw new Error('複数回再試行しましたが、生成に失敗しました。時間をおいて再度お試しください。');
+                    }
+                    // 指定時間待機して再試行
+                    await new Promise(resolve => setTimeout(resolve, delays[i]));
+                }
+            }
+        }
+
+        // 生成ボタンのクリックイベント
+        generateBtn.addEventListener('click', async () => {
+            const customerMessage = customerMessageInput.value.trim();
+            const replyTone = replyToneInput.value;
+            const keyPoints = keyPointsInput.value.trim();
+
+            if (!customerMessage) {
+                showToast('お客様からの問い合わせ内容を入力してください', 'error');
+                customerMessageInput.focus();
+                return;
+            }
+
+            // UIをローディング状態にする
+            generateBtn.classList.add('is-loading');
+            generateBtn.disabled = true;
+            outputText.value = '';
+            emptyState.style.display = 'none';
+            copyBtn.disabled = true;
+
+            // プロンプトの構築
+            const systemInstruction = `あなたはプロフェッショナルで優秀なカスタマーサポートのスペシャリストです。提供された情報をもとに、そのままメールやチャットで返信できる高品質な文章を作成してください。
+・指示された「トーン」を厳密に守ること。
+・指示された「含めるべきポイント」がある場合は、漏れなく自然な形で文章に組み込むこと。
+・件名（メールを想定）も適宜含め、宛名、挨拶、本文、結びの言葉の構成にすること。
+・プレースホルダー（[お客様名]や[自社名]など）を使用して、ユーザーが後で書き換えやすいようにすること。`;
+
+            const prompt = `以下の情報に基づいて、お客様への返信文を作成してください。
+
+【お客様からの問い合わせ内容】
+${customerMessage}
+
+【希望する返信のトーン】
+${replyTone}
+
+【含めるべきポイント・回答内容】
+${keyPoints ? keyPoints : '特になし（問い合わせ内容に合わせて適切に回答してください）'}
+
+そのまま送信・コピーして使える形式で出力してください。`;
+
+            try {
+                // APIリクエスト実行
+                const resultText = await generateWithRetry(prompt, systemInstruction);
+                
+                // 結果を表示
+                outputText.value = resultText;
+                
+                // コピーボタンを有効化
+                copyBtn.disabled = false;
+                copyBtn.classList.remove('opacity-50', 'cursor-not-allowed');
+                
+                showToast('返信案を生成しました', 'success');
+            } catch (error) {
+                outputText.value = `エラーが発生しました:\n${error.message}`;
+                showToast('生成中にエラーが発生しました', 'error');
+            } finally {
+                // ローディング状態を解除
+                generateBtn.classList.remove('is-loading');
+                generateBtn.disabled = false;
+            }
+        });
+    </script>
+</body>
+</html>
